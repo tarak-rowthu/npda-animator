@@ -26,7 +26,62 @@ describe('PDASimulator: Balanced Parentheses PDA', () => {
   });
 });
 
-describe('PDASimulator: aⁿbⁿ Language PDA', () => {
+describe('PDASimulator: aⁿbⁿ Language PDA — required acceptance/rejection matrix', () => {
+  // Each case pinned from the bug report. The engine must reach the correct
+  // verdict based solely on the input it is given — never a previously-seen
+  // string from a prior simulation run.
+
+  it('accepts: empty string (n=0)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, '');
+    expect(res.accepted).toBe(true);
+    expect(res.finalConfig.input).toBe('');
+  });
+
+  it('accepts: "ab" (n=1)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'ab');
+    expect(res.accepted).toBe(true);
+    expect(res.finalConfig.input).toBe('ab');
+  });
+
+  it('accepts: "aabb" (n=2)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'aabb');
+    expect(res.accepted).toBe(true);
+    expect(res.finalConfig.input).toBe('aabb');
+  });
+
+  it('accepts: "aaabbb" (n=3)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'aaabbb');
+    expect(res.accepted).toBe(true);
+    expect(res.finalConfig.input).toBe('aaabbb');
+  });
+
+  it('rejects: "abb" (extra b)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'abb');
+    expect(res.accepted).toBe(false);
+    // The engine must have processed "abb", NOT any previous input
+    expect(res.finalConfig.input).toBe('abb');
+  });
+
+  it('rejects: "aab" (missing b)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'aab');
+    expect(res.accepted).toBe(false);
+    expect(res.finalConfig.input).toBe('aab');
+  });
+
+  it('rejects: "abab" (interleaved)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'abab');
+    expect(res.accepted).toBe(false);
+    expect(res.finalConfig.input).toBe('abab');
+  });
+
+  it('rejects: "ba" (reversed order)', () => {
+    const res = PDASimulator.runBatch(anbnPDA, 'ba');
+    expect(res.accepted).toBe(false);
+    expect(res.finalConfig.input).toBe('ba');
+  });
+});
+
+describe('PDASimulator: aⁿbⁿ Language PDA — legacy acceptance/rejection tests', () => {
   it('accepts valid aⁿbⁿ strings', () => {
     expect(PDASimulator.runBatch(anbnPDA, '').accepted).toBe(true);
     expect(PDASimulator.runBatch(anbnPDA, 'ab').accepted).toBe(true);
@@ -40,6 +95,49 @@ describe('PDASimulator: aⁿbⁿ Language PDA', () => {
     expect(PDASimulator.runBatch(anbnPDA, 'ba').accepted).toBe(false);
     expect(PDASimulator.runBatch(anbnPDA, 'aab').accepted).toBe(false);
     expect(PDASimulator.runBatch(anbnPDA, 'abb').accepted).toBe(false);
+  });
+});
+
+describe('PDASimulator: input-synchronisation regression guard', () => {
+  // Regression: a new PDASimulator must always process exactly the input
+  // it was constructed with, regardless of what other simulators existed.
+  // This guards against the "displays abb but processes aabb" class of bug
+  // where a stale simulator object is reused after the input field changes.
+
+  it('each runBatch call processes its own input independently', () => {
+    // Run "aabb" first — this MUST NOT contaminate a later run of "abb"
+    const r1 = PDASimulator.runBatch(anbnPDA, 'aabb');
+    expect(r1.accepted).toBe(true);
+    expect(r1.finalConfig.input).toBe('aabb');
+
+    const r2 = PDASimulator.runBatch(anbnPDA, 'abb');
+    expect(r2.accepted).toBe(false);
+    expect(r2.finalConfig.input).toBe('abb'); // must not silently use 'aabb'
+  });
+
+  it('two PDASimulator instances for different inputs are fully independent', () => {
+    const simAabb = new PDASimulator(anbnPDA, 'aabb');
+    const simAbb  = new PDASimulator(anbnPDA, 'abb');
+
+    const r1 = simAabb.runToCompletion();
+    const r2 = simAbb.runToCompletion();
+
+    expect(r1.accepted).toBe(true);
+    expect(r1.finalConfig.input).toBe('aabb');
+
+    expect(r2.accepted).toBe(false);
+    expect(r2.finalConfig.input).toBe('abb');
+  });
+
+  it('resetting a simulator rebuilds with the same original input', () => {
+    const sim = new PDASimulator(anbnPDA, 'aabb');
+    sim.runToCompletion();
+    sim.reset();
+    // After reset the engine is back to step 0 with the same input
+    expect(sim.currentConfig.input).toBe('aabb');
+    expect(sim.currentConfig.inputPos).toBe(0);
+    expect(sim.currentConfig.stepNumber).toBe(0);
+    expect(sim.currentStatus).toBe('idle');
   });
 });
 

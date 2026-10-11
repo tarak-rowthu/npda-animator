@@ -128,7 +128,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setInputString: (inputString) => {
-    set((s) => ({ sim: { ...s.sim, inputString } }));
+    // Invalidate the existing simulator so the next action always creates
+    // a fresh one with the new input. Also reset all simulation state so
+    // the tape, stack, trace, and status stay in sync with the field.
+    get().pauseAutoRun();
+    set((s) => ({
+      sim: {
+        ...s.sim,
+        inputString,
+        simulator: null,
+        status: 'idle',
+        currentConfig: null,
+        executionSteps: [],
+        selectedStepIndex: null,
+        isAutoRunning: false,
+      },
+    }));
   },
 
   initSimulator: () => {
@@ -195,22 +210,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetSimulator: () => {
     get().pauseAutoRun();
-    const { simulator } = get().sim;
-    if (simulator) {
-      simulator.reset();
-      set((s) => ({
-        sim: {
-          ...s.sim,
-          simulator,
-          status: 'idle',
-          currentConfig: simulator.currentConfig,
-          executionSteps: [],
-          selectedStepIndex: null,
-        },
-      }));
-    } else {
-      get().initSimulator();
-    }
+    // Always rebuild from the current inputString — never reuse the input
+    // that was baked into the previous simulator at construction time.
+    const { pda, inputString } = get().sim;
+    const sim = new PDASimulator(pda, inputString);
+    set((s) => ({
+      sim: {
+        ...s.sim,
+        simulator: sim,
+        status: 'idle',
+        currentConfig: sim.currentConfig,
+        executionSteps: [],
+        selectedStepIndex: null,
+        isAutoRunning: false,
+      },
+    }));
   },
 
   runToCompletion: () => {
