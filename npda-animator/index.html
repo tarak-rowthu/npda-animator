@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="N-PDA Animator: An Interactive Deterministic Pushdown Automaton Simulation and Language Recognition Tool. Visualize stack operations, trace transitions, and understand PDA theory." />
+    <meta name="theme-color" content="#0f1117" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
+    <title>N-PDA Animator — Pushdown Automaton Simulator</title>
+    <style>
+      /* Responsive visibility helpers */
+      @media (max-width: 767px) {
+        .hide-mobile { display: none !important; }
+        .hide-xs { display: none; }
+        .show-mobile { display: block; }
+
+        /* Simulator three-panel -> single column on mobile */
+        .simulator-grid {
+          grid-template-columns: 1fr !important;
+          overflow-y: auto !important;
+        }
+      }
+      @media (min-width: 768px) {
+        .show-mobile { display: none !important; }
+        .hide-mobile { display: flex !important; }
+
+        /* Simulator on tablet: two columns */
+        @media (max-width: 1023px) {
+          .simulator-grid {
+            grid-template-columns: 1fr 1fr !important;
+            grid-template-rows: auto auto !important;
+          }
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
