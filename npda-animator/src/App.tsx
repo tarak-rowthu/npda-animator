@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppStore } from './hooks/useAppStore';
-import { Sidebar, MobileNav } from './components/layout/Navigation';
+import { Sidebar, MobileNav, TopBar } from './components/layout/Navigation';
 import { HomePage } from './pages/HomePage';
 import { SimulatorPage } from './pages/SimulatorPage';
 import { ExamplesPage } from './pages/ExamplesPage';
@@ -77,7 +77,10 @@ export default function App() {
         id="main-content"
         tabIndex={-1}
       >
-        <PageContent />
+        <TopBar />
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <PageContent />
+        </div>
       </main>
 
       {/* Mobile bottom nav */}

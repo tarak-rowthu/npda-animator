@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Save, Play, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Save, Play, CheckCircle2, XCircle, AlertTriangle, Sparkles, Layers, Code } from 'lucide-react';
 import type { PDADefinition, PDAState, PDATransition, ValidationError } from '../types/pda';
 import { validatePDA } from '../lib/automaton-validator/validator';
 import { saveAutomaton } from '../lib/storage/storage';
@@ -11,8 +11,8 @@ function uid() {
 
 const DEFAULT_PDA: PDADefinition = {
   id: uid(),
-  name: 'My Custom PDA',
-  description: 'A custom pushdown automaton.',
+  name: 'Custom Deterministic PDA',
+  description: 'A custom pushdown automaton engineered in the design suite.',
   states: [
     { id: 'q0', name: 'q0', isInitial: true, isAccepting: true, position: { x: 100, y: 200 } },
   ],
@@ -39,12 +39,20 @@ export function BuilderPage() {
   // ── State ops ─────────────────────────────────────────────────────────────
   function addState() {
     const id = `q${pda.states.length}`;
-    const newState: PDAState = { id, name: id, isInitial: false, isAccepting: false, position: { x: 100 + pda.states.length * 150, y: 200 } };
+    const newState: PDAState = {
+      id,
+      name: id,
+      isInitial: false,
+      isAccepting: false,
+      position: { x: 100 + pda.states.length * 150, y: 200 },
+    };
     updatePDA({ states: [...pda.states, newState] });
   }
 
   function updateState(stateId: string, patch: Partial<PDAState>) {
-    updatePDA({ states: pda.states.map((s: PDAState) => s.id === stateId ? { ...s, ...patch } : s) });
+    updatePDA({
+      states: pda.states.map((s: PDAState) => (s.id === stateId ? { ...s, ...patch } : s)),
+    });
   }
 
   function deleteState(stateId: string) {
@@ -55,7 +63,9 @@ export function BuilderPage() {
   }
 
   function setInitialState(stateId: string) {
-    updatePDA({ states: pda.states.map((s: PDAState) => ({ ...s, isInitial: s.id === stateId })) });
+    updatePDA({
+      states: pda.states.map((s: PDAState) => ({ ...s, isInitial: s.id === stateId })),
+    });
   }
 
   // ── Transition ops ────────────────────────────────────────────────────────
@@ -73,11 +83,15 @@ export function BuilderPage() {
   }
 
   function updateTransition(id: string, patch: Partial<PDATransition>) {
-    updatePDA({ transitions: pda.transitions.map((t: PDATransition) => t.id === id ? { ...t, ...patch } : t) });
+    updatePDA({
+      transitions: pda.transitions.map((t: PDATransition) => (t.id === id ? { ...t, ...patch } : t)),
+    });
   }
 
   function deleteTransition(id: string) {
-    updatePDA({ transitions: pda.transitions.filter((t: PDATransition) => t.id !== id) });
+    updatePDA({
+      transitions: pda.transitions.filter((t: PDATransition) => t.id !== id),
+    });
   }
 
   // ── Alphabet ops ──────────────────────────────────────────────────────────
@@ -103,53 +117,88 @@ export function BuilderPage() {
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
-      {/* Header */}
-      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface)', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
+      {/* Glossy Header Bar */}
+      <div style={{
+        padding: '0.85rem 1.25rem',
+        borderBottom: '1px solid var(--color-border)',
+        background: 'rgba(13, 18, 32, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow: 'var(--gloss-highlight-subtle)',
+        display: 'flex',
+        gap: '0.85rem',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '240px' }}>
+          <div style={{
+            width: '32px', height: '32px',
+            borderRadius: '8px',
+            background: 'var(--color-accent-dim)',
+            border: '1px solid rgba(139, 141, 255, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--color-accent-light)',
+          }}>
+            <Code size={16} />
+          </div>
           <input
             className="input"
             value={pda.name}
             onChange={(e) => updatePDA({ name: e.target.value })}
-            style={{ fontWeight: 700, fontSize: '1rem' }}
+            style={{ fontWeight: 800, fontSize: '1rem', height: '38px', maxWidth: '380px' }}
             aria-label="Automaton name"
+            placeholder="Name your automaton..."
           />
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={handleValidate}>
-            Validate
+            <Sparkles size={14} color="var(--color-accent-light)" />
+            <span>Validate Determinism</span>
           </button>
           <button className="btn btn-secondary" onClick={handleSave}>
-            <Save size={14} /> {saved ? 'Saved!' : 'Save'}
+            <Save size={14} />
+            <span>{saved ? 'Saved to Browser!' : 'Save Model'}</span>
           </button>
-          <button className="btn btn-primary" onClick={handleOpenInSimulator} disabled={validation !== null && !validation.valid}>
-            <Play size={14} /> Open in Simulator
+          <button
+            className="btn btn-primary"
+            onClick={handleOpenInSimulator}
+            disabled={validation !== null && !validation.valid}
+          >
+            <Play size={14} />
+            <span>Open in Simulator →</span>
           </button>
         </div>
       </div>
 
-      {/* Validation result */}
+      {/* Validation Banner */}
       {validation && (
         <div style={{
-          padding: '0.75rem 1rem',
+          padding: '0.85rem 1.25rem',
           borderBottom: '1px solid var(--color-border)',
-          background: validation.valid ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+          background: validation.valid ? 'rgba(53, 214, 160, 0.1)' : 'rgba(255, 100, 124, 0.1)',
+          boxShadow: 'var(--gloss-highlight-subtle)',
         }}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: validation.errors.length > 0 || validation.warnings.length > 0 ? '0.5rem' : 0 }}>
-            {validation.valid
-              ? <CheckCircle2 size={16} color="var(--color-success)" />
-              : <XCircle size={16} color="var(--color-error)" />}
-            <strong style={{ color: validation.valid ? 'var(--color-success)' : 'var(--color-error)', fontSize: '0.875rem' }}>
-              {validation.valid ? 'Valid Deterministic PDA' : `${validation.errors.length} validation error(s)`}
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: validation.errors.length > 0 || validation.warnings.length > 0 ? '0.4rem' : 0 }}>
+            {validation.valid ? (
+              <CheckCircle2 size={18} color="var(--color-success)" />
+            ) : (
+              <XCircle size={18} color="var(--color-error)" />
+            )}
+            <strong style={{ color: validation.valid ? 'var(--color-success)' : 'var(--color-error)', fontSize: '0.9rem' }}>
+              {validation.valid
+                ? 'Valid Deterministic PDA — Ready for Step-by-Step Simulation'
+                : `${validation.errors.length} validation error(s) must be resolved:`}
             </strong>
           </div>
           {validation.errors.map((err: ValidationError, i: number) => (
-            <div key={i} style={{ fontSize: '0.8rem', color: 'var(--color-error)', marginBottom: '0.2rem' }}>
-              <XCircle size={12} style={{ display: 'inline', marginRight: '0.3rem' }} />
-              {err.message}
+            <div key={i} style={{ fontSize: '0.82rem', color: 'var(--color-error)', marginLeft: '1.75rem', marginTop: '0.2rem' }}>
+              • {err.message}
             </div>
           ))}
           {validation.warnings.map((w: string, i: number) => (
-            <div key={i} style={{ fontSize: '0.8rem', color: 'var(--color-warning)', marginBottom: '0.2rem' }}>
+            <div key={i} style={{ fontSize: '0.82rem', color: 'var(--color-warning)', marginLeft: '1.75rem', marginTop: '0.2rem' }}>
               <AlertTriangle size={12} style={{ display: 'inline', marginRight: '0.3rem' }} />
               {w}
             </div>
@@ -157,109 +206,165 @@ export function BuilderPage() {
         </div>
       )}
 
-      {/* Main content */}
-      <div style={{ flex: 1, overflow: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', padding: '1rem', alignContent: 'start' }}>
+      {/* Main Form Content Grid */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '1.25rem',
+        padding: '1.25rem',
+        alignContent: 'start',
+      }}>
+        {/* ── Automaton Configuration Panel ── */}
+        <div className="glass-panel" style={{ padding: '1.25rem' }}>
+          <div style={{ fontWeight: 800, marginBottom: '1rem', fontSize: '0.95rem', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Layers size={16} color="var(--color-accent-light)" />
+            <span>Alphabet & Acceptance Settings</span>
+          </div>
 
-        {/* ── Automaton Metadata ── */}
-        <div className="card" style={{ padding: '1rem' }}>
-          <div style={{ fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.9rem' }}>Automaton Settings</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Description
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <label style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+              Description & Language
               <textarea
+                className="input"
                 value={pda.description}
                 onChange={(e) => updatePDA({ description: e.target.value })}
                 rows={2}
-                style={{ display: 'block', width: '100%', marginTop: '0.2rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.5rem', color: 'var(--color-text)', fontSize: '0.82rem', resize: 'vertical' }}
+                style={{ marginTop: '0.3rem', resize: 'vertical' }}
+                placeholder="E.g. Recognizes language L = {aⁿbⁿ | n ≥ 0}"
               />
             </label>
 
-            <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Input Alphabet (comma-separated)
+            <label style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+              Input Alphabet Σ (comma-separated)
               <input
                 className="input"
-                style={{ marginTop: '0.2rem' }}
+                style={{ marginTop: '0.3rem' }}
                 value={pda.inputAlphabet.join(', ')}
                 onChange={(e) => updatePDA({ inputAlphabet: parseAlphabet(e.target.value) })}
                 placeholder="e.g. a, b"
               />
             </label>
 
-            <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Stack Alphabet (comma-separated)
+            <label style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+              Stack Alphabet Γ (comma-separated)
               <input
                 className="input"
-                style={{ marginTop: '0.2rem' }}
+                style={{ marginTop: '0.3rem' }}
                 value={pda.stackAlphabet.join(', ')}
                 onChange={(e) => updatePDA({ stackAlphabet: parseAlphabet(e.target.value) })}
                 placeholder="e.g. B, A"
               />
             </label>
 
-            <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Initial Stack Symbol
-              <input
-                className="input"
-                style={{ marginTop: '0.2rem' }}
-                value={pda.initialStackSymbol}
-                onChange={(e) => updatePDA({ initialStackSymbol: e.target.value.trim() })}
-                placeholder="e.g. B"
-              />
-            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+                Initial Stack Symbol Z₀
+                <input
+                  className="input"
+                  style={{ marginTop: '0.3rem' }}
+                  value={pda.initialStackSymbol}
+                  onChange={(e) => updatePDA({ initialStackSymbol: e.target.value.trim() })}
+                  placeholder="e.g. B"
+                />
+              </label>
 
-            <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              Acceptance Criterion
-              <select
-                value={pda.acceptanceCriterion}
-                onChange={(e) => updatePDA({ acceptanceCriterion: e.target.value as any })}
-                style={{ display: 'block', width: '100%', marginTop: '0.2rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.35rem 0.5rem', color: 'var(--color-text)', fontSize: '0.85rem' }}
-              >
-                <option value="final-state">Final State</option>
-                <option value="empty-stack">Empty Stack</option>
-              </select>
-            </label>
+              <label style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+                Acceptance Criterion
+                <select
+                  className="input"
+                  value={pda.acceptanceCriterion}
+                  onChange={(e) => updatePDA({ acceptanceCriterion: e.target.value as any })}
+                  style={{ marginTop: '0.3rem', cursor: 'pointer' }}
+                >
+                  <option value="final-state">Final State (F)</option>
+                  <option value="empty-stack">Empty Stack (N)</option>
+                </select>
+              </label>
+            </div>
           </div>
         </div>
 
-        {/* ── States ── */}
-        <div className="card" style={{ padding: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>States ({pda.states.length})</div>
-            <button className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={addState}>
-              <Plus size={13} /> Add State
+        {/* ── States Configuration Panel ── */}
+        <div className="glass-panel" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF' }}>
+              Automaton States ({pda.states.length})
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
+              onClick={addState}
+            >
+              <Plus size={13} />
+              <span>Add State</span>
             </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', maxHeight: '340px', overflowY: 'auto' }}>
             {pda.states.map((state: PDAState) => (
-              <div key={state.id} style={{
-                padding: '0.5rem 0.75rem',
-                background: 'var(--color-surface-2)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.5rem',
-                alignItems: 'center',
-                border: state.isInitial ? '1px solid var(--color-info)' : state.isAccepting ? '1px solid var(--color-success)' : '1px solid transparent',
-              }}>
+              <div
+                key={state.id}
+                style={{
+                  padding: '0.65rem 0.85rem',
+                  background: 'var(--color-surface-2)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.65rem',
+                  alignItems: 'center',
+                  border: state.isInitial
+                    ? '1px solid var(--color-info)'
+                    : state.isAccepting
+                    ? '1px solid var(--color-success)'
+                    : '1px solid var(--color-border)',
+                  boxShadow: 'var(--gloss-highlight-subtle)',
+                }}
+              >
                 <input
                   value={state.name}
                   onChange={(e) => updateState(state.id, { name: e.target.value })}
-                  style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-text)', width: '60px', fontSize: '0.9rem' }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 800,
+                    color: '#FFFFFF',
+                    width: '64px',
+                    fontSize: '0.95rem',
+                  }}
                   aria-label={`State name for ${state.id}`}
                 />
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', cursor: 'pointer', color: 'var(--color-info)' }}>
-                  <input type="radio" name="initial-state" checked={state.isInitial} onChange={() => setInitialState(state.id)} style={{ accentColor: 'var(--color-info)' }} />
-                  Initial
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--color-info)', fontWeight: 600 }}>
+                  <input
+                    type="radio"
+                    name="initial-state"
+                    checked={state.isInitial}
+                    onChange={() => setInitialState(state.id)}
+                    style={{ accentColor: 'var(--color-info)' }}
+                  />
+                  <span>Initial (q₀)</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', cursor: 'pointer', color: 'var(--color-success)' }}>
-                  <input type="checkbox" checked={state.isAccepting} onChange={(e) => updateState(state.id, { isAccepting: e.target.checked })} style={{ accentColor: 'var(--color-success)' }} />
-                  Accepting
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--color-success)', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={state.isAccepting}
+                    onChange={(e) => updateState(state.id, { isAccepting: e.target.checked })}
+                    style={{ accentColor: 'var(--color-success)' }}
+                  />
+                  <span>Accepting (F)</span>
                 </label>
+
                 <button
                   className="btn btn-ghost"
-                  style={{ padding: '0.15rem 0.3rem', marginLeft: 'auto', color: 'var(--color-error)' }}
+                  style={{ padding: '0.2rem 0.4rem', marginLeft: 'auto', color: 'var(--color-error)' }}
                   onClick={() => deleteState(state.id)}
                   aria-label={`Delete state ${state.name}`}
+                  title="Remove state"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -268,103 +373,173 @@ export function BuilderPage() {
           </div>
         </div>
 
-        {/* ── Transitions ── */}
-        <div className="card" style={{ padding: '1rem', gridColumn: '1 / -1' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Transitions ({pda.transitions.length})</div>
-            <button className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={addTransition} disabled={pda.states.length === 0}>
-              <Plus size={13} /> Add Transition
+        {/* ── Transition Rules Table Panel ── */}
+        <div className="glass-panel" style={{ padding: '1.25rem', gridColumn: '1 / -1' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#FFFFFF' }}>
+                Transition Function δ ({pda.transitions.length} rules)
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                δ(Current State, Input Symbol, Stack Top) → (Next State, Stack Push)
+              </div>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem' }}
+              onClick={addTransition}
+              disabled={pda.states.length === 0}
+            >
+              <Plus size={14} />
+              <span>Add Transition Rule</span>
             </button>
           </div>
 
           {pda.transitions.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '1.5rem', fontSize: '0.85rem' }}>
-              No transitions defined yet. Click "Add Transition" to create one.
+            <div style={{
+              textAlign: 'center',
+              color: 'var(--color-text-muted)',
+              padding: '2rem',
+              fontSize: '0.88rem',
+              background: 'rgba(13, 18, 32, 0.4)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px dashed var(--color-border)',
+            }}>
+              No transitions defined yet. Click <strong>"Add Transition Rule"</strong> to formulate state transfers.
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+              <table className="trace-table">
                 <thead>
-                  <tr style={{ background: 'var(--color-surface-2)' }}>
-                    {['From State', 'Input Symbol', 'Stack Top', 'To State', 'Stack Push', ''].map((h) => (
-                      <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--color-border)' }}>{h}</th>
-                    ))}
+                  <tr>
+                    <th>From State (q)</th>
+                    <th>Input (a or ε)</th>
+                    <th>Stack Top (X)</th>
+                    <th>To State (q')</th>
+                    <th>Stack Push (γ)</th>
+                    <th>Formal Notation</th>
+                    <th style={{ width: '40px' }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pda.transitions.map((t: PDATransition) => (
-                    <tr key={t.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      {/* From State */}
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <select
-                          value={t.fromState}
-                          onChange={(e) => updateTransition(t.id, { fromState: e.target.value })}
-                          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem', color: 'var(--color-text)', fontSize: '0.82rem' }}
-                          aria-label="From state"
-                        >
-                          {pda.states.map((s: PDAState) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                      </td>
-                      {/* Input Symbol */}
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <input
-                          value={t.inputSymbol}
-                          onChange={(e) => updateTransition(t.id, { inputSymbol: e.target.value })}
-                          placeholder="ε or symbol"
-                          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.4rem', color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', width: '70px' }}
-                          aria-label="Input symbol"
-                        />
-                      </td>
-                      {/* Stack Top */}
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <input
-                          value={t.stackTopSymbol}
-                          onChange={(e) => updateTransition(t.id, { stackTopSymbol: e.target.value })}
-                          placeholder="symbol"
-                          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.4rem', color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', width: '60px' }}
-                          aria-label="Stack top symbol"
-                        />
-                      </td>
-                      {/* To State */}
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <select
-                          value={t.toState}
-                          onChange={(e) => updateTransition(t.id, { toState: e.target.value })}
-                          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem', color: 'var(--color-text)', fontSize: '0.82rem' }}
-                          aria-label="To state"
-                        >
-                          {pda.states.map((s: PDAState) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                      </td>
-                      {/* Stack Push */}
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <input
-                          value={t.stackPush}
-                          onChange={(e) => updateTransition(t.id, { stackPush: e.target.value })}
-                          placeholder="ε or string"
-                          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.4rem', color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', width: '80px' }}
-                          aria-label="Stack push string"
-                        />
-                      </td>
-                      <td style={{ padding: '0.35rem 0.5rem' }}>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: '0.2rem', color: 'var(--color-error)' }}
-                          onClick={() => deleteTransition(t.id)}
-                          aria-label="Delete transition"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {pda.transitions.map((t: PDATransition) => {
+                    const fromStateName = pda.states.find((s) => s.id === t.fromState)?.name ?? t.fromState;
+                    const toStateName = pda.states.find((s) => s.id === t.toState)?.name ?? t.toState;
+                    const inp = !t.inputSymbol || t.inputSymbol === 'ε' ? 'ε' : t.inputSymbol;
+                    const push = t.stackPush === '' ? 'ε' : t.stackPush;
+                    const notation = `δ(${fromStateName}, ${inp}, ${t.stackTopSymbol}) = (${toStateName}, ${push})`;
+
+                    return (
+                      <tr key={t.id}>
+                        {/* From State */}
+                        <td>
+                          <select
+                            className="input"
+                            value={t.fromState}
+                            onChange={(e) => updateTransition(t.id, { fromState: e.target.value })}
+                            style={{ height: '32px', padding: '0.2rem 0.5rem', width: '90px' }}
+                            aria-label="From state"
+                          >
+                            {pda.states.map((s: PDAState) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Input Symbol */}
+                        <td>
+                          <input
+                            className="input"
+                            value={t.inputSymbol}
+                            onChange={(e) => updateTransition(t.id, { inputSymbol: e.target.value })}
+                            placeholder="ε or char"
+                            style={{ height: '32px', width: '80px', padding: '0.2rem 0.5rem' }}
+                            aria-label="Input symbol"
+                          />
+                        </td>
+
+                        {/* Stack Top */}
+                        <td>
+                          <input
+                            className="input"
+                            value={t.stackTopSymbol}
+                            onChange={(e) => updateTransition(t.id, { stackTopSymbol: e.target.value })}
+                            placeholder="symbol"
+                            style={{ height: '32px', width: '70px', padding: '0.2rem 0.5rem' }}
+                            aria-label="Stack top symbol"
+                          />
+                        </td>
+
+                        {/* To State */}
+                        <td>
+                          <select
+                            className="input"
+                            value={t.toState}
+                            onChange={(e) => updateTransition(t.id, { toState: e.target.value })}
+                            style={{ height: '32px', padding: '0.2rem 0.5rem', width: '90px' }}
+                            aria-label="To state"
+                          >
+                            {pda.states.map((s: PDAState) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Stack Push */}
+                        <td>
+                          <input
+                            className="input"
+                            value={t.stackPush}
+                            onChange={(e) => updateTransition(t.id, { stackPush: e.target.value })}
+                            placeholder="ε or string"
+                            style={{ height: '32px', width: '90px', padding: '0.2rem 0.5rem' }}
+                            aria-label="Stack push string"
+                          />
+                        </td>
+
+                        {/* Formal Notation Badge */}
+                        <td>
+                          <span className="transition-notation" style={{ fontSize: '0.78rem' }}>
+                            {notation}
+                          </span>
+                        </td>
+
+                        {/* Delete action */}
+                        <td>
+                          <button
+                            className="btn btn-ghost"
+                            style={{ padding: '0.25rem', color: 'var(--color-error)' }}
+                            onClick={() => deleteTransition(t.id)}
+                            aria-label="Delete transition rule"
+                            title="Delete rule"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
 
-          <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.75rem', background: 'var(--color-surface-2)', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-            <strong>Stack convention:</strong> In "Stack Push", enter the replacement string where the <strong>leftmost character ends on top</strong>. Leave empty ("") to POP the stack top. Enter "ε" to POP as well. To leave the stack unchanged, enter the same symbol as Stack Top.
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.75rem 1rem',
+            background: 'rgba(139, 141, 255, 0.06)',
+            borderRadius: 'var(--radius-md)',
+            borderLeft: '3px solid var(--color-accent)',
+            fontSize: '0.78rem',
+            color: 'var(--color-text-muted)',
+            lineHeight: 1.6,
+          }}>
+            <strong style={{ color: 'var(--color-text)' }}>LIFO Convention:</strong> In "Stack Push", write replacement string γ with the <strong>leftmost character ending at the top of the stack</strong>.
+            Leave empty ("") or enter "ε" to perform a pure <strong>POP</strong>. Enter the identical symbol as Stack Top to leave the stack unchanged.
           </div>
         </div>
       </div>

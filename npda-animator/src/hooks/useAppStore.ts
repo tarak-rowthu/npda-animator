@@ -3,8 +3,8 @@
  */
 
 import { create } from 'zustand';
-import type { PDADefinition, ExecutionStatus, SimulationConfig, ExecutionStep } from '../types/pda';
-import { PDASimulator } from '../lib/simulation-engine/pdaEngine';
+import type { PDADefinition, ExecutionStatus, SimulationConfig, ExecutionStep, TransitionAnimationEvent, StackOperationType } from '../types/pda';
+import { PDASimulator, isEpsilon } from '../lib/simulation-engine/pdaEngine';
 import { BUILT_IN_EXAMPLES } from '../lib/examples/builtinExamples';
 import {
   loadProgress,
@@ -37,6 +37,7 @@ interface SimulatorState {
   autoRunInterval: ReturnType<typeof setInterval> | null;
   learningMode: boolean;
   explanationLevel: 'beginner' | 'technical';
+  lastAnimationEvent: TransitionAnimationEvent | null;
 }
 
 interface AppState {
@@ -91,6 +92,7 @@ function makeInitialSimState(): SimulatorState {
     autoRunInterval: null,
     learningMode: false,
     explanationLevel: 'beginner',
+    lastAnimationEvent: null,
   };
 }
 
@@ -123,14 +125,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         executionSteps: [],
         selectedStepIndex: null,
         isAutoRunning: false,
+        lastAnimationEvent: null,
       },
     }));
   },
 
   setInputString: (inputString) => {
-    // Invalidate the existing simulator so the next action always creates
-    // a fresh one with the new input. Also reset all simulation state so
-    // the tape, stack, trace, and status stay in sync with the field.
     get().pauseAutoRun();
     set((s) => ({
       sim: {
@@ -142,6 +142,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         executionSteps: [],
         selectedStepIndex: null,
         isAutoRunning: false,
+        lastAnimationEvent: null,
       },
     }));
   },
@@ -160,6 +161,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         executionSteps: [],
         selectedStepIndex: null,
         isAutoRunning: false,
+        lastAnimationEvent: null,
       },
     }));
   },
@@ -175,11 +177,57 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newCfg = simulator.currentConfig;
     const steps = simulator.executionSteps;
 
-    set((s) => ({ sim: { ...s.sim, status: newStatus, currentConfig: newCfg, executionSteps: [...steps] } }));
+    const latestStep = steps[steps.length - 1];
+    let animEvent: TransitionAnimationEvent | null = null;
+    if (latestStep) {
+      const beforeStack = latestStep.configBefore.stack;
+      const afterStack = latestStep.configAfter.stack;
+      let opType: StackOperationType = 'none';
+      if (afterStack.length > beforeStack.length) {
+        opType = 'push';
+      } else if (afterStack.length < beforeStack.length) {
+        opType = 'pop';
+      } else if (
+        latestStep.transitionApplied &&
+        latestStep.transitionApplied.stackPush !== latestStep.transitionApplied.stackTopSymbol
+      ) {
+        opType = 'replace';
+      }
+
+      const t = latestStep.transitionApplied;
+      animEvent = {
+        id: `${latestStep.stepNumber}-${Date.now()}`,
+        stepNumber: latestStep.stepNumber,
+        fromState: latestStep.configBefore.state,
+        toState: latestStep.configAfter.state,
+        inputSymbolConsumed: t && !isEpsilon(t.inputSymbol) ? t.inputSymbol : null,
+        isEpsilon: t ? isEpsilon(t.inputSymbol) : false,
+        stackBefore: beforeStack,
+        stackAfter: afterStack,
+        transitionRule: t,
+        operationType: opType,
+        pushedSymbols: t?.stackPush || undefined,
+        poppedSymbol: t?.stackTopSymbol || undefined,
+        status: newStatus,
+        isAccepted: newStatus === 'accepted',
+        isRejected: newStatus === 'rejected',
+        isStuck: newStatus === 'stuck',
+        timestamp: Date.now(),
+      };
+    }
+
+    set((s) => ({
+      sim: {
+        ...s.sim,
+        status: newStatus,
+        currentConfig: newCfg,
+        executionSteps: [...steps],
+        lastAnimationEvent: animEvent,
+      },
+    }));
 
     if (!advanced && newStatus !== 'running') {
       get().pauseAutoRun();
-      // Record in progress
       const { pda, inputString } = get().sim;
       recordSimulation({
         id: Date.now().toString(),
@@ -204,14 +252,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         status: simulator.currentStatus,
         currentConfig: simulator.currentConfig,
         executionSteps: [...simulator.executionSteps],
+        lastAnimationEvent: null,
       },
     }));
   },
 
   resetSimulator: () => {
     get().pauseAutoRun();
-    // Always rebuild from the current inputString — never reuse the input
-    // that was baked into the previous simulator at construction time.
     const { pda, inputString } = get().sim;
     const sim = new PDASimulator(pda, inputString);
     set((s) => ({
@@ -223,6 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         executionSteps: [],
         selectedStepIndex: null,
         isAutoRunning: false,
+        lastAnimationEvent: null,
       },
     }));
   },
@@ -235,6 +283,38 @@ export const useAppStore = create<AppState>((set, get) => ({
       set((s) => ({ sim: { ...s.sim, simulator: sim } }));
     }
     const result = sim.runToCompletion();
+    const latestStep = result.steps[result.steps.length - 1];
+    let animEvent: TransitionAnimationEvent | null = null;
+    if (latestStep) {
+      const beforeStack = latestStep.configBefore.stack;
+      const afterStack = latestStep.configAfter.stack;
+      let opType: StackOperationType = 'none';
+      if (afterStack.length > beforeStack.length) {
+        opType = 'push';
+      } else if (afterStack.length < beforeStack.length) {
+        opType = 'pop';
+      }
+
+      const t = latestStep.transitionApplied;
+      animEvent = {
+        id: `${latestStep.stepNumber}-${Date.now()}`,
+        stepNumber: latestStep.stepNumber,
+        fromState: latestStep.configBefore.state,
+        toState: latestStep.configAfter.state,
+        inputSymbolConsumed: t && !isEpsilon(t.inputSymbol) ? t.inputSymbol : null,
+        isEpsilon: t ? isEpsilon(t.inputSymbol) : false,
+        stackBefore: beforeStack,
+        stackAfter: afterStack,
+        transitionRule: t,
+        operationType: opType,
+        status: result.status,
+        isAccepted: result.status === 'accepted',
+        isRejected: result.status === 'rejected',
+        isStuck: result.status === 'stuck',
+        timestamp: Date.now(),
+      };
+    }
+
     set((s) => ({
       sim: {
         ...s.sim,
@@ -242,6 +322,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         status: result.status,
         currentConfig: result.finalConfig,
         executionSteps: [...result.steps],
+        lastAnimationEvent: animEvent,
       },
     }));
     recordSimulation({

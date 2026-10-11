@@ -87,6 +87,33 @@ export interface SimulationResult {
 }
 
 // ============================================================
+// Animation Event Types (Decoupled Simulation -> Animation Layer)
+// ============================================================
+
+export type StackOperationType = 'push' | 'pop' | 'replace' | 'none';
+
+export interface TransitionAnimationEvent {
+  id: string;
+  stepNumber: number;
+  fromState: string;
+  toState: string;
+  inputSymbolConsumed: string | null;
+  isEpsilon: boolean;
+  stackBefore: string[];
+  stackAfter: string[];
+  transitionRule: PDATransition | null;
+  operationType: StackOperationType;
+  pushedSymbols?: string;
+  poppedSymbol?: string;
+  status: ExecutionStatus;
+  isAccepted: boolean;
+  isRejected: boolean;
+  isStuck: boolean;
+  timestamp: number;
+}
+
+
+// ============================================================
 // Validator Types
 // ============================================================
 

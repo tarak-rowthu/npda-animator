@@ -1,219 +1,160 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import {
-  Play, Pause, SkipBack, SkipForward, RotateCcw, FastForward,
-  ChevronDown, ChevronUp, BookOpen, Info, CheckCircle2, XCircle, AlertTriangle, Clock
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  RotateCcw,
+  FastForward,
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
 } from 'lucide-react';
 import { useAppStore } from '../hooks/useAppStore';
 import { AutomatonDiagram } from '../components/automaton/AutomatonDiagram';
 import { StackVisualization } from '../components/stack/StackVisualization';
 import { InputTape } from '../components/input-tape/InputTape';
 import { ExecutionTrace } from '../components/execution-trace/ExecutionTrace';
+import { SimulationResultModal } from '../components/simulator/SimulationResultModal';
+import { SimulationStatusBar } from '../components/simulator/SimulationStatusBar';
+import { TransitionDetailsCard } from '../components/simulator/TransitionDetailsCard';
 import { BUILT_IN_EXAMPLES, EXAMPLE_TEST_STRINGS } from '../lib/examples/builtinExamples';
-import type { ExecutionStatus, PDAState } from '../types/pda';
 
 const SPEED_OPTIONS = [
   { label: 'Slow', ms: 1200 },
   { label: 'Normal', ms: 600 },
   { label: 'Fast', ms: 250 },
-  { label: 'Very Fast', ms: 80 },
+  { label: 'Ultra', ms: 80 },
 ];
 
-function StatusBadge({ status }: { status: ExecutionStatus }) {
-  const configs: Record<ExecutionStatus, { label: string; color: string; icon: React.ReactNode }> = {
-    idle: { label: 'Ready', color: 'var(--color-text-muted)', icon: <Clock size={14} /> },
-    running: { label: 'Running', color: 'var(--color-info)', icon: <Play size={14} /> },
-    paused: { label: 'Paused', color: 'var(--color-warning)', icon: <Pause size={14} /> },
-    accepted: { label: 'ACCEPTED', color: 'var(--color-success)', icon: <CheckCircle2 size={14} /> },
-    rejected: { label: 'REJECTED', color: 'var(--color-error)', icon: <XCircle size={14} /> },
-    stuck: { label: 'STUCK', color: 'var(--color-warning)', icon: <AlertTriangle size={14} /> },
-    'invalid-input': { label: 'INVALID INPUT', color: 'var(--color-error)', icon: <XCircle size={14} /> },
-    'step-limit-reached': { label: 'LIMIT REACHED', color: 'var(--color-warning)', icon: <AlertTriangle size={14} /> },
-  };
-
-  const cfg = configs[status];
-
-  return (
-    <motion.div
-      key={status}
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.2 }}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        padding: '0.35rem 0.75rem',
-        borderRadius: '9999px',
-        background: `${cfg.color}22`,
-        border: `1px solid ${cfg.color}44`,
-        color: cfg.color,
-        fontSize: '0.8rem',
-        fontWeight: 700,
-      }}
-    >
-      {cfg.icon} {cfg.label}
-    </motion.div>
-  );
-}
-
-function TransitionPanel() {
-  const { sim } = useAppStore();
-  const [showTechnical, setShowTechnical] = useState(false);
-
-  const latestStep = sim.executionSteps[sim.executionSteps.length - 1];
-  if (!latestStep) {
-    return (
-      <div style={{ padding: '1rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-        No transitions executed yet. Press <strong>Start</strong> or <strong>Step Forward</strong> to begin.
-      </div>
-    );
-  }
-
-  const t = latestStep.transitionApplied;
-
-  return (
-    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {/* Transition notation */}
-      {t ? (
-        <div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Applied Transition
-          </div>
-          <div className="transition-notation">
-            δ({sim.pda.states.find((s: PDAState) => s.id === t.fromState)?.name ?? t.fromState},{' '}
-            {t.inputSymbol === '' || t.inputSymbol === 'ε' ? 'ε' : t.inputSymbol},{' '}
-            {t.stackTopSymbol}) = ({sim.pda.states.find((s: PDAState) => s.id === t.toState)?.name ?? t.toState},{' '}
-            {t.stackPush === '' ? 'ε' : t.stackPush})
-          </div>
-        </div>
-      ) : (
-        <div style={{ color: 'var(--color-warning)', fontSize: '0.85rem' }}>
-          ⚠ No applicable transition — simulation terminal.
-        </div>
-      )}
-
-      {/* Explanation toggle */}
-      <div>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem' }}
-          onClick={() => setShowTechnical((v) => !v)}
-        >
-          <Info size={13} />
-          {showTechnical ? 'Beginner explanation' : 'Technical explanation'}
-        </button>
-
-        <div style={{
-          marginTop: '0.4rem',
-          padding: '0.6rem 0.75rem',
-          background: 'var(--color-surface-2)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: '0.82rem',
-          lineHeight: '1.6',
-          color: 'var(--color-text)',
-        }}>
-          {showTechnical ? latestStep.technicalExplanation : latestStep.explanation}
-        </div>
-      </div>
-
-      {/* Stack change */}
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-        <span style={{ color: 'var(--color-text-muted)' }}>Stack:</span>
-        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text)' }}>
-          [{latestStep.configBefore.stack.join(', ')}]
-        </span>
-        <span style={{ color: 'var(--color-accent-light)' }}>→</span>
-        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text)' }}>
-          [{latestStep.configAfter.stack.join(', ')}]
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function AcceptanceResult() {
-  const { sim } = useAppStore();
-  const { status, pda } = sim;
-
-  if (status === 'idle' || status === 'running' || status === 'paused') return null;
-
-  const messages: Record<string, { title: string; subtitle: string; color: string }> = {
-    accepted: {
-      title: '✓ ACCEPTED',
-      subtitle: pda.acceptanceCriterion === 'final-state'
-        ? `The input was fully consumed in an accepting state (final-state acceptance).`
-        : `The input was fully consumed with an empty stack (empty-stack acceptance).`,
-      color: 'var(--color-success)',
-    },
-    rejected: {
-      title: '✗ REJECTED',
-      subtitle: `The input was fully consumed but the acceptance criterion was not satisfied.`,
-      color: 'var(--color-error)',
-    },
-    stuck: {
-      title: '⚠ STUCK',
-      subtitle: `No applicable transition exists. The string is rejected (dead configuration).`,
-      color: 'var(--color-warning)',
-    },
-    'invalid-input': {
-      title: '✗ INVALID INPUT',
-      subtitle: `The input string contains symbols not in the input alphabet.`,
-      color: 'var(--color-error)',
-    },
-    'step-limit-reached': {
-      title: '⏱ EXECUTION INCOMPLETE',
-      subtitle: `The step limit was reached. The PDA may be in an infinite loop. Increase the step limit to continue.`,
-      color: 'var(--color-warning)',
-    },
-  };
-
-  const msg = messages[status];
-  if (!msg) return null;
-
-  return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      style={{
-        background: `${msg.color}11`,
-        border: `2px solid ${msg.color}44`,
-        borderRadius: 'var(--radius-lg)',
-        padding: '1rem 1.25rem',
-        textAlign: 'center',
-      }}
-    >
-      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: msg.color, marginBottom: '0.25rem' }}>
-        {msg.title}
-      </div>
-      <div style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)' }}>{msg.subtitle}</div>
-      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-        Criterion: <strong>{pda.acceptanceCriterion === 'final-state' ? 'Final State' : 'Empty Stack'}</strong>
-        {' · '}Steps: <strong>{sim.executionSteps.length}</strong>
-      </div>
-    </motion.div>
-  );
+function isEpsilon(sym: string): boolean {
+  return sym === '' || sym === 'ε';
 }
 
 export function SimulatorPage() {
   const store = useAppStore();
-  const { sim, setInputString, initSimulator, stepForward, stepBackward, resetSimulator,
-    runToCompletion, startAutoRun, pauseAutoRun, setAnimationSpeed, selectStep, selectPDA } = store;
+  const {
+    sim,
+    setInputString,
+    initSimulator,
+    stepForward,
+    stepBackward,
+    resetSimulator,
+    runToCompletion,
+    startAutoRun,
+    pauseAutoRun,
+    setAnimationSpeed,
+    selectStep,
+    selectPDA,
+  } = store;
 
   const [showTrace, setShowTrace] = useState(true);
   const [inputError, setInputError] = useState('');
+  const [mobileTab, setMobileTab] = useState<'diagram' | 'tape-stack' | 'trace'>('diagram');
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const lastTerminalStatusRef = useRef<string | null>(null);
 
-  const currentDisplayConfig = sim.selectedStepIndex !== null
-    ? sim.executionSteps[sim.selectedStepIndex]?.configAfter ?? sim.currentConfig
-    : sim.currentConfig;
+  const isFinished = ['accepted', 'rejected', 'stuck', 'invalid-input', 'step-limit-reached'].includes(sim.status);
+  const canStepForward = !isFinished;
+  const canStepBackward = sim.executionSteps.length > 0;
 
-  const selectedStepData = sim.selectedStepIndex !== null
-    ? sim.executionSteps[sim.selectedStepIndex]
-    : null;
+  // Open modal automatically when simulation enters terminal state
+  useEffect(() => {
+    if (isFinished && sim.status !== lastTerminalStatusRef.current) {
+      lastTerminalStatusRef.current = sim.status;
+      // Slight delay so the user sees the final transition and final state animate first!
+      const timer = setTimeout(() => {
+        setIsResultModalOpen(true);
+      }, 450);
+      return () => clearTimeout(timer);
+    }
+    if (!isFinished) {
+      lastTerminalStatusRef.current = null;
+    }
+  }, [isFinished, sim.status]);
 
-  const prevStack = sim.executionSteps.length > 0
-    ? sim.executionSteps[sim.executionSteps.length - 1]?.configBefore.stack
-    : undefined;
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      pauseAutoRun();
+    };
+  }, [pauseAutoRun]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't intercept when user is typing in form elements
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        if (sim.isAutoRunning) {
+          pauseAutoRun();
+        } else if (!isFinished) {
+          if (!sim.simulator) initSimulator();
+          startAutoRun();
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (canStepForward && !sim.isAutoRunning) {
+          stepForward();
+        }
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (canStepBackward && !sim.isAutoRunning) {
+          stepBackward();
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        resetSimulator();
+        setIsResultModalOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    sim.isAutoRunning,
+    isFinished,
+    canStepForward,
+    canStepBackward,
+    sim.simulator,
+    pauseAutoRun,
+    initSimulator,
+    startAutoRun,
+    stepForward,
+    stepBackward,
+    resetSimulator,
+  ]);
+
+  const currentDisplayConfig =
+    sim.selectedStepIndex !== null
+      ? sim.executionSteps[sim.selectedStepIndex]?.configAfter ?? sim.currentConfig
+      : sim.currentConfig;
+
+  const selectedStepData =
+    sim.selectedStepIndex !== null ? sim.executionSteps[sim.selectedStepIndex] : null;
+
+  const latestStepData =
+    sim.executionSteps.length > 0 ? sim.executionSteps[sim.executionSteps.length - 1] : null;
+
+  const activeDisplayStep = selectedStepData ?? latestStepData;
+
+  const prevStack =
+    sim.selectedStepIndex !== null
+      ? sim.executionSteps[sim.selectedStepIndex]?.configBefore.stack
+      : sim.executionSteps.length > 0
+      ? sim.executionSteps[sim.executionSteps.length - 1]?.configBefore.stack
+      : undefined;
 
   function handleStart() {
     if (!sim.simulator) {
@@ -224,271 +165,472 @@ export function SimulatorPage() {
 
   function handleInputChange(val: string) {
     setInputString(val);
-    const badChars = val.split('').filter(ch => !sim.pda.inputAlphabet.includes(ch) && ch !== '');
+    setIsResultModalOpen(false);
+    const badChars = val.split('').filter((ch) => !sim.pda.inputAlphabet.includes(ch) && ch !== '');
     if (badChars.length > 0) {
-      setInputError(`Symbol(s) not in alphabet: ${[...new Set(badChars)].join(', ')}`);
+      setInputError(`Disallowed symbol(s): ${[...new Set(badChars)].join(', ')}`);
     } else {
       setInputError('');
     }
   }
 
-  const isFinished = ['accepted','rejected','stuck','invalid-input','step-limit-reached'].includes(sim.status);
-  const canStepForward = !isFinished;
-  const canStepBackward = sim.executionSteps.length > 0;
-
   const exampleStrings = EXAMPLE_TEST_STRINGS[sim.pda.id];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0', overflow: 'hidden' }}>
+      {/* ── LIVE SIMULATION STATUS BAR ── */}
+      <SimulationStatusBar
+        status={sim.status}
+        currentConfig={currentDisplayConfig}
+        pda={sim.pda}
+        inputString={sim.inputString}
+        stepCount={sim.executionSteps.length}
+        onOpenResultCard={() => setIsResultModalOpen(true)}
+        isInspectingHistory={sim.selectedStepIndex !== null}
+        selectedStepNumber={sim.selectedStepIndex !== null ? sim.selectedStepIndex + 1 : undefined}
+        onExitHistoryInspection={() => selectStep(null)}
+      />
 
-      {/* ── TOP BAR: PDA selector + input ── */}
-      <div style={{
-        padding: '0.75rem 1rem',
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        gap: '0.75rem',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
-        background: 'var(--color-surface)',
-      }}>
-        {/* PDA selector */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <label style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Automaton
+      {/* ── TOP BAR: PDA selector + Input String + Example Quick Load ── */}
+      <div
+        style={{
+          padding: '0.65rem 1rem',
+          borderBottom: '1px solid var(--color-border)',
+          display: 'flex',
+          gap: '0.75rem',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          background: 'var(--color-surface)',
+        }}
+      >
+        {/* PDA Selector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <label
+            htmlFor="automaton-select"
+            style={{
+              fontSize: '0.68rem',
+              color: 'var(--color-text-muted)',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            Automaton Model
           </label>
           <select
+            id="automaton-select"
             value={sim.pda.id}
             onChange={(e) => {
               const found = BUILT_IN_EXAMPLES.find((x) => x.id === e.target.value);
-              if (found) selectPDA(found);
+              if (found) {
+                selectPDA(found);
+                setIsResultModalOpen(false);
+              }
             }}
             style={{
               background: 'var(--color-surface-2)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-md)',
-              padding: '0.4rem 0.6rem',
+              padding: '0.4rem 0.65rem',
               color: 'var(--color-text)',
               fontSize: '0.85rem',
+              fontWeight: 600,
               cursor: 'pointer',
             }}
-            aria-label="Select automaton"
+            aria-label="Select automaton model"
           >
             {BUILT_IN_EXAMPLES.map((ex) => (
-              <option key={ex.id} value={ex.id}>{ex.name}</option>
+              <option key={ex.id} value={ex.id}>
+                {ex.name}
+              </option>
             ))}
           </select>
         </div>
 
-        {/* Input string */}
-        <div style={{ flex: 1, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <label htmlFor="input-string" style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Input String
-          </label>
+        {/* Input String Field */}
+        <div style={{ flex: 1, minWidth: '190px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label
+              htmlFor="input-string"
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--color-text-muted)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
+              Input Tape String (w)
+            </label>
+            <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
+              Alphabet Σ: [{sim.pda.inputAlphabet.join(', ')}]
+            </span>
+          </div>
+
           <input
             id="input-string"
             className="input"
             value={sim.inputString}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Enter input string (leave empty for ε)"
+            placeholder="Type string to test (leave blank for ε empty string)"
             aria-describedby={inputError ? 'input-error' : undefined}
             aria-invalid={!!inputError}
             disabled={sim.isAutoRunning}
+            style={{
+              height: '34px',
+              padding: '0.35rem 0.6rem',
+            }}
           />
           {inputError && (
-            <div id="input-error" style={{ fontSize: '0.7rem', color: 'var(--color-error)' }}>{inputError}</div>
+            <div id="input-error" style={{ fontSize: '0.7rem', color: 'var(--color-error)', fontWeight: 600 }}>
+              {inputError}
+            </div>
           )}
         </div>
 
-        {/* Example strings */}
+        {/* Example Test Strings */}
         {exampleStrings && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Examples
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            <div
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--color-text-muted)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
+              Preset Test Cases
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-              {[...exampleStrings.accepted.slice(0,3), ...exampleStrings.rejected.slice(0,2)].map((s) => (
+              {[...exampleStrings.accepted.slice(0, 3), ...exampleStrings.rejected.slice(0, 2)].map((s) => (
                 <button
                   key={s}
                   className="tag"
-                  style={{ cursor: 'pointer', border: '1px solid var(--color-border)' }}
-                  onClick={() => { handleInputChange(s); }}
-                  title={`Load "${s}"`}
+                  style={{
+                    cursor: 'pointer',
+                    border: '1px solid var(--color-border)',
+                    fontFamily: 'var(--font-mono)',
+                    padding: '0.2rem 0.45rem',
+                    fontSize: '0.72rem',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onClick={() => handleInputChange(s)}
+                  title={`Load string "${s}" into simulator`}
                 >
-                  {s === '' ? 'ε' : s}
+                  {s === '' ? 'ε (empty)' : `"${s}"`}
                 </button>
               ))}
             </div>
           </div>
         )}
-
-        {/* Status */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-end', marginLeft: 'auto' }}>
-          <StatusBadge status={sim.status} />
-          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-            Step {sim.currentConfig?.stepNumber ?? 0} • Alphabet: [{sim.pda.inputAlphabet.join(',')}]
-          </div>
-        </div>
       </div>
 
-      {/* ── SIMULATION CONTROLS ── */}
-      <div style={{
-        padding: '0.5rem 1rem',
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        flexWrap: 'wrap',
-        background: 'var(--color-surface-2)',
-      }}>
-        <button className="btn btn-secondary" onClick={resetSimulator} aria-label="Reset simulation" title="Reset">
-          <RotateCcw size={15} />
+      {/* ── SIMULATION CONTROLS TOOLBAR ── */}
+      <div
+        style={{
+          padding: '0.45rem 1rem',
+          borderBottom: '1px solid var(--color-border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          flexWrap: 'wrap',
+          background: 'var(--color-surface-2)',
+        }}
+      >
+        {/* Reset */}
+        <button
+          className="btn btn-secondary"
+          onClick={() => {
+            resetSimulator();
+            setIsResultModalOpen(false);
+          }}
+          aria-label="Reset simulation (Shortcut: R)"
+          title="Reset Simulation (R)"
+          style={{ padding: '0.35rem 0.65rem' }}
+        >
+          <RotateCcw size={14} />
           <span className="hide-xs">Reset</span>
         </button>
 
-        <button className="btn btn-secondary" onClick={stepBackward} disabled={!canStepBackward || sim.isAutoRunning} aria-label="Step backward" title="Step Back">
-          <SkipBack size={15} />
+        {/* Step Backward */}
+        <button
+          className="btn btn-secondary"
+          onClick={stepBackward}
+          disabled={!canStepBackward || sim.isAutoRunning}
+          aria-label="Step backward (Shortcut: Left Arrow)"
+          title="Step Backward (Left Arrow)"
+          style={{ padding: '0.35rem 0.65rem' }}
+        >
+          <SkipBack size={14} />
           <span className="hide-xs">Back</span>
         </button>
 
+        {/* Play / Pause */}
         {sim.isAutoRunning ? (
-          <button className="btn btn-primary" onClick={pauseAutoRun} aria-label="Pause simulation">
-            <Pause size={15} /> Pause
+          <button
+            className="btn btn-primary"
+            onClick={pauseAutoRun}
+            aria-label="Pause auto-run (Shortcut: Space)"
+            title="Pause (Space)"
+            style={{ padding: '0.35rem 0.85rem' }}
+          >
+            <Pause size={14} /> Pause
           </button>
         ) : (
-          <button className="btn btn-primary" onClick={handleStart} disabled={isFinished} aria-label="Start auto-run">
-            <Play size={15} /> {sim.status === 'idle' ? 'Start' : 'Resume'}
+          <button
+            className="btn btn-primary"
+            onClick={handleStart}
+            disabled={isFinished}
+            aria-label="Start / Resume auto-run (Shortcut: Space)"
+            title="Start / Resume (Space)"
+            style={{ padding: '0.35rem 0.85rem' }}
+          >
+            <Play size={14} /> {sim.status === 'idle' ? 'Start' : 'Resume'}
           </button>
         )}
 
-        <button className="btn btn-secondary" onClick={stepForward} disabled={!canStepForward || sim.isAutoRunning} aria-label="Step forward" title="Step Forward">
-          <SkipForward size={15} />
+        {/* Step Forward */}
+        <button
+          className="btn btn-secondary"
+          onClick={stepForward}
+          disabled={!canStepForward || sim.isAutoRunning}
+          aria-label="Step forward one transition (Shortcut: Right Arrow)"
+          title="Step Forward (Right Arrow)"
+          style={{ padding: '0.35rem 0.65rem' }}
+        >
+          <SkipForward size={14} />
           <span className="hide-xs">Step</span>
         </button>
 
-        <button className="btn btn-secondary" onClick={runToCompletion} disabled={isFinished || sim.isAutoRunning} aria-label="Run to completion" title="Run to End">
-          <FastForward size={15} />
+        {/* Run All / Run to Completion */}
+        <button
+          className="btn btn-secondary"
+          onClick={runToCompletion}
+          disabled={isFinished || sim.isAutoRunning}
+          aria-label="Run to completion"
+          title="Run All Transitions to End"
+          style={{ padding: '0.35rem 0.65rem' }}
+        >
+          <FastForward size={14} />
           <span className="hide-xs">Run All</span>
         </button>
 
-        {/* Speed */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginLeft: '0.5rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Speed:</span>
+        {/* Speed Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', marginLeft: '0.4rem' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginRight: '2px' }}>Speed:</span>
           {SPEED_OPTIONS.map((opt) => (
             <button
               key={opt.ms}
               className={`btn btn-ghost ${sim.animationSpeed === opt.ms ? 'active' : ''}`}
               style={{
-                padding: '0.2rem 0.5rem',
-                fontSize: '0.72rem',
-                background: sim.animationSpeed === opt.ms ? 'rgba(99,102,241,0.2)' : undefined,
+                padding: '0.15rem 0.45rem',
+                fontSize: '0.7rem',
+                minHeight: 'unset',
+                background: sim.animationSpeed === opt.ms ? 'rgba(99,102,241,0.22)' : undefined,
                 color: sim.animationSpeed === opt.ms ? 'var(--color-accent-light)' : undefined,
+                fontWeight: sim.animationSpeed === opt.ms ? 700 : 500,
               }}
               onClick={() => setAnimationSpeed(opt.ms)}
+              title={`${opt.label} speed (${opt.ms}ms per step)`}
             >
               {opt.label}
             </button>
           ))}
         </div>
 
-        {/* Learning Mode toggle */}
+        {/* Learning Mode Toggle */}
         <button
           className={`btn btn-ghost ${sim.learningMode ? 'active' : ''}`}
           style={{
             marginLeft: 'auto',
-            padding: '0.25rem 0.5rem',
-            fontSize: '0.75rem',
-            background: sim.learningMode ? 'rgba(99,102,241,0.15)' : undefined,
+            padding: '0.2rem 0.5rem',
+            fontSize: '0.72rem',
+            background: sim.learningMode ? 'rgba(99,102,241,0.18)' : undefined,
             color: sim.learningMode ? 'var(--color-accent-light)' : undefined,
           }}
           onClick={store.toggleLearningMode}
           aria-pressed={sim.learningMode}
+          title="Toggle beginner guidance hints"
         >
-          <BookOpen size={14} />
-          {sim.learningMode ? 'Learning ON' : 'Learning Mode'}
+          <BookOpen size={13} />
+          {sim.learningMode ? 'Learning Mode: ON' : 'Learning Mode'}
         </button>
       </div>
 
-      {/* ── MAIN THREE-PANEL LAYOUT ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(280px, 1fr) minmax(200px, 340px) minmax(280px, 1fr)',
-        gridTemplateRows: '1fr',
-        gap: 0,
-        flex: 1,
-        overflow: 'hidden',
-        minHeight: 0,
-      }} className="simulator-grid">
+      {/* ── MOBILE TABS (visible only on narrow screens) ── */}
+      <div className="show-mobile-tabs" style={{ background: 'var(--color-surface)' }}>
+        <div className="tabs" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <button
+            className={`tab-item ${mobileTab === 'diagram' ? 'active' : ''}`}
+            onClick={() => setMobileTab('diagram')}
+          >
+            Diagram & Rules
+          </button>
+          <button
+            className={`tab-item ${mobileTab === 'tape-stack' ? 'active' : ''}`}
+            onClick={() => setMobileTab('tape-stack')}
+          >
+            Input & Stack
+          </button>
+          <button
+            className={`tab-item ${mobileTab === 'trace' ? 'active' : ''}`}
+            onClick={() => setMobileTab('trace')}
+          >
+            Trace ({sim.executionSteps.length})
+          </button>
+        </div>
+      </div>
 
-        {/* LEFT: Automaton Diagram */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid var(--color-border)',
+      {/* ── MAIN THREE-PANEL LAYOUT ── */}
+      <div
+        className={`simulator-grid mobile-tab-${mobileTab}`}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(300px, 1.25fr) minmax(220px, 320px) minmax(280px, 1.15fr)',
+          gridTemplateRows: '1fr',
+          gap: 0,
+          flex: 1,
           overflow: 'hidden',
-        }}>
-          <div className="panel-header">
-            <span>State Diagram</span>
+          minHeight: 0,
+        }}
+      >
+        {/* ── PANEL 1 (LEFT): State Diagram + Transition Details ── */}
+        <div
+          className="simulator-panel-diagram"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--color-border)',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="panel-header" style={{ justifyContent: 'space-between' }}>
+            <span>State Transition Diagram</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
+              {sim.pda.states.length} states • {sim.pda.transitions.length} transitions
+            </span>
           </div>
-          <div style={{ flex: 1, padding: '0.5rem', overflow: 'hidden' }}>
+
+          {/* Diagram Canvas */}
+          <div style={{ flex: 1, padding: '0.4rem', overflow: 'hidden', minHeight: '260px' }}>
             <AutomatonDiagram
               pda={sim.pda}
               currentConfig={currentDisplayConfig}
               selectedStep={selectedStepData}
+              status={sim.status}
+              latestStep={latestStepData}
+              animationEvent={sim.lastAnimationEvent}
             />
           </div>
 
-          {/* Transition info */}
-          <div style={{ borderTop: '1px solid var(--color-border)', maxHeight: '180px', overflowY: 'auto' }}>
-            <div className="panel-header">
-              <span>Transition Details</span>
-            </div>
-            <TransitionPanel />
+          {/* Dynamic Transition Details Card */}
+          <div
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              maxHeight: '230px',
+              overflowY: 'auto',
+              background: 'var(--color-surface)',
+            }}
+          >
+            <TransitionDetailsCard
+              step={activeDisplayStep}
+              pda={sim.pda}
+              isTerminal={isFinished}
+              terminalReason={sim.simulator?.currentStatus === 'stuck' ? 'Dead configuration — no transition applies' : undefined}
+            />
           </div>
         </div>
 
-        {/* CENTER: Stack + Tape + Result */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid var(--color-border)',
-          overflow: 'hidden',
-        }}>
-          <div className="panel-header"><span>Input & Stack</span></div>
+        {/* ── PANEL 2 (CENTER): Input Tape + Stack Vessel ── */}
+        <div
+          className="simulator-panel-tape-stack"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid var(--color-border)',
+            overflow: 'hidden',
+            background: 'var(--color-bg)',
+          }}
+        >
+          <div className="panel-header">
+            <span>Input Tape & Pushdown Stack</span>
+          </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.75rem' }}>
-            {/* Tape */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+              padding: '0.75rem',
+            }}
+          >
+            {/* Input Tape Card */}
             <div className="card" style={{ padding: '0.75rem' }}>
               <InputTape
                 input={currentDisplayConfig?.input ?? sim.inputString}
                 inputPos={currentDisplayConfig?.inputPos ?? 0}
+                isAccepted={sim.status === 'accepted'}
+                isEpsilonTransition={
+                  activeDisplayStep?.transitionApplied ? isEpsilon(activeDisplayStep.transitionApplied.inputSymbol) : false
+                }
+                pdaId={sim.pda.id}
+                animationEvent={sim.lastAnimationEvent}
               />
             </div>
 
-            {/* Stack */}
-            <div className="card" style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* Stack Vessel Card */}
+            <div
+              className="card"
+              style={{
+                padding: '0.75rem',
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                minHeight: '230px',
+              }}
+            >
               <StackVisualization
                 stack={currentDisplayConfig?.stack ?? [sim.pda.initialStackSymbol]}
                 previousStack={prevStack}
+                isError={sim.status === 'stuck'}
+                isAccepted={sim.status === 'accepted'}
+                animationEvent={sim.lastAnimationEvent}
               />
             </div>
-
-            {/* Acceptance result */}
-            <AcceptanceResult />
           </div>
         </div>
 
-        {/* RIGHT: Execution Trace */}
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* ── PANEL 3 (RIGHT): Interactive Execution Trace ── */}
+        <div
+          className="simulator-panel-trace"
+          style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        >
           <div className="panel-header" style={{ justifyContent: 'space-between' }}>
-            <span>Execution Trace ({sim.executionSteps.length} steps)</span>
-            <button
-              className="btn btn-ghost"
-              style={{ padding: '0.15rem 0.3rem', fontSize: '0.7rem' }}
-              onClick={() => setShowTrace((v) => !v)}
-              aria-label={showTrace ? 'Collapse trace' : 'Expand trace'}
-            >
-              {showTrace ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
+            <span>Execution Trace ({sim.executionSteps.length} Steps)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {sim.selectedStepIndex !== null && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: '0.15rem 0.4rem', fontSize: '0.68rem', color: 'var(--color-accent-light)' }}
+                  onClick={() => selectStep(null)}
+                  title="Clear selection and resume viewing latest live step"
+                >
+                  Exit Inspection
+                </button>
+              )}
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '0.15rem 0.3rem', fontSize: '0.7rem' }}
+                onClick={() => setShowTrace((v) => !v)}
+                aria-label={showTrace ? 'Collapse trace table' : 'Expand trace table'}
+              >
+                {showTrace ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            </div>
           </div>
 
           {showTrace && (
@@ -502,30 +644,80 @@ export function SimulatorPage() {
             </div>
           )}
 
-          {/* Selected step explanation */}
+          {/* Selected step details banner */}
           {selectedStepData && (
-            <div style={{ borderTop: '1px solid var(--color-border)', padding: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text)' }}>
-              <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--color-accent-light)' }}>
-                Step {selectedStepData.stepNumber} Explanation:
+            <div
+              style={{
+                borderTop: '1px solid var(--color-border)',
+                padding: '0.65rem 0.85rem',
+                background: 'rgba(99, 102, 241, 0.08)',
+                fontSize: '0.78rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                <strong style={{ color: 'var(--color-accent-light)' }}>
+                  Inspecting Step #{selectedStepData.stepNumber}:
+                </strong>
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                  Synchronized with diagram & stack
+                </span>
               </div>
-              {sim.explanationLevel === 'technical'
-                ? selectedStepData.technicalExplanation
-                : selectedStepData.explanation}
+              <div style={{ color: 'var(--color-text)', lineHeight: 1.5 }}>
+                {sim.explanationLevel === 'technical'
+                  ? selectedStepData.technicalExplanation
+                  : selectedStepData.explanation}
+              </div>
             </div>
           )}
 
-          {/* Automaton info */}
-          <div style={{ borderTop: '1px solid var(--color-border)', padding: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            <div><strong>{sim.pda.name}</strong></div>
-            <div style={{ marginTop: '0.25rem' }}>{sim.pda.description}</div>
-            <div style={{ marginTop: '0.4rem' }}>
-              Criterion: <span style={{ color: 'var(--color-accent-light)' }}>
-                {sim.pda.acceptanceCriterion === 'final-state' ? 'Final State' : 'Empty Stack'}
+          {/* Automaton Specs Footer */}
+          <div
+            style={{
+              borderTop: '1px solid var(--color-border)',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.74rem',
+              color: 'var(--color-text-muted)',
+              background: 'var(--color-surface)',
+            }}
+          >
+            <div>
+              <strong style={{ color: 'var(--color-text)' }}>{sim.pda.name}</strong>
+            </div>
+            <div style={{ marginTop: '0.2rem', lineHeight: 1.45 }}>{sim.pda.description}</div>
+            <div style={{ marginTop: '0.35rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span>
+                Acceptance:{' '}
+                <strong style={{ color: 'var(--color-accent-light)' }}>
+                  {sim.pda.acceptanceCriterion === 'final-state' ? 'Final State (q ∈ F)' : 'Empty Stack (N)'}
+                </strong>
+              </span>
+              <span>
+                Stack Bottom: <code style={{ color: 'var(--color-accent-light)' }}>{sim.pda.initialStackSymbol}</code>
               </span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── POPUP: Polish Acceptance & Rejection Modals ── */}
+      <SimulationResultModal
+        isOpen={isResultModalOpen}
+        onClose={() => setIsResultModalOpen(false)}
+        status={sim.status}
+        pda={sim.pda}
+        inputString={sim.inputString}
+        steps={sim.executionSteps}
+        finalConfig={sim.currentConfig}
+        onViewTrace={() => {
+          setIsResultModalOpen(false);
+          setShowTrace(true);
+          setMobileTab('trace');
+        }}
+        onReset={() => {
+          resetSimulator();
+          setIsResultModalOpen(false);
+        }}
+      />
     </div>
   );
 }
